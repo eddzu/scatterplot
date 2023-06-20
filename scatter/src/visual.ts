@@ -30,29 +30,68 @@ import powerbi from "powerbi-visuals-api";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
-import DataView = powerbi.DataView;
-import IVisualHost = powerbi.extensibility.IVisualHost;
 import * as d3 from "d3";
-type Selection<T extends d3.BaseType> = d3.Selection<T, any, any, any>;
 
 export class Visual implements IVisual {
 
-    private svgRoot: d3.Selection<SVGElement, {}, HTMLElement, any>;
-    private ellipse: d3.Selection<SVGElement, {}, HTMLElement, any>;
-    private text: d3.Selection<SVGElement, {}, HTMLElement, any>;
-    private padding: number = 20;
-
-
+    private svgRoot: d3.Selection<SVGElement, any, HTMLElement, any>;
 
     constructor(options: VisualConstructorOptions) {
         this.svgRoot = d3.select(options.element).append("svg");
-
-
     }
+
     public update(options: VisualUpdateOptions) {
-        console.log(options);
-        this.svgRoot
-            .attr("width", options.viewport.width)
-            .attr("height", options.viewport.height);
+        this.svgRoot.selectAll("*").remove();
+        let dataViewCategorical = options.dataViews[0].categorical;
+
+        if (dataViewCategorical?.categories?.length === 1 &&
+            dataViewCategorical?.values?.length === 2) {
+
+            this.svgRoot
+                .attr("width", options.viewport.width)
+                .attr("height", options.viewport.height);
+
+            let xAxis = <number[]>dataViewCategorical.values[0].values;
+            let yAxis = <number[]>dataViewCategorical.values[1].values;
+            let cats = dataViewCategorical.categories[0].values;
+
+            let data = xAxis.map((x, i) => {
+                return { "x": x, "y": yAxis[i], "cat": cats[i] }
+            });
+
+            let xMin = Math.min(...xAxis);
+            let xMax = Math.max(...xAxis);
+            let yMin = Math.min(...yAxis);
+            let yMax = Math.max(...yAxis);
+            let xMargin = 50;
+            let yMargin = 30;
+            let height = options.viewport.height - yMargin;
+            let width = options.viewport.width - xMargin;
+
+            var x = d3.scaleLinear()
+                .domain([xMin, xMax])
+                .range([xMargin, width]);
+            this.svgRoot.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x));
+
+            var y = d3.scaleLinear()
+                .domain([yMin, yMax])
+                .range([height, yMargin]);
+            this.svgRoot.append("g")
+                .attr("transform", "translate(" + xMargin + ",0)")
+                .call(d3.axisLeft(y));
+
+            // Add dots
+            this.svgRoot.append('g')
+                .selectAll("dot")
+                .data(data)
+                .enter()
+                .append("circle")
+                .attr("cx", function (d) { return x(d.x); })
+                .attr("cy", function (d) { return y(d.y); })
+                .attr("r", 5.5)
+                .style("fill", "#69b3a2")
+        }
     }
 }
