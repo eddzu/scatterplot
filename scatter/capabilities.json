@@ -42,7 +42,7 @@
                         "fill": {}
                     }
                 },
-                 "fontSize": {
+                "fontSize": {
                     "type": {
                         "formatting": {
                             "fontSize": true
@@ -75,5 +75,14 @@
             }
         }
     ],
-    "privileges": []
+    "privileges": [],
+    "tooltips": {
+        "supportedTypes": {
+            "default": true,
+            "canvas": true
+        },
+        "roles": [
+            "tooltips"
+        ]
+    }
 }
