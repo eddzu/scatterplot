@@ -35,12 +35,15 @@ import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import * as d3 from "d3";
 import { createTooltipServiceWrapper, ITooltipServiceWrapper } from "powerbi-visuals-utils-tooltiputils";
 import { valueFormatter } from "powerbi-visuals-utils-formattingutils";
+import { VisualFormattingSettingsModel } from "./settings";
+import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
 
 export class Visual implements IVisual {
     private host: IVisualHost;
     private svgRoot: d3.Selection<SVGElement, any, HTMLElement, any>;
     private tooltipServiceWrapper: ITooltipServiceWrapper;
-    private selectionManager: powerbi.extensibility.ISelectionManager;
+    private visualSettings: VisualFormattingSettingsModel;
+    private formattingSettingsService: FormattingSettingsService;
     private dotSelection: d3.Selection<d3.BaseType, any, d3.BaseType, any>;
     private xName: string;
     private yName: string;
@@ -52,10 +55,10 @@ export class Visual implements IVisual {
 
     //Creates instance of ScatterPlot
     constructor(options: VisualConstructorOptions) {
+        this.formattingSettingsService = new FormattingSettingsService();
         this.host = options.host;
         this.tooltipServiceWrapper = createTooltipServiceWrapper(this.host.tooltipService, options.element);
         this.svgRoot = d3.select(options.element).append("svg");
-        this.selectionManager = options.host.createSelectionManager();
     }
     //Updates the state of the visual
     public update(options: VisualUpdateOptions) {
@@ -82,6 +85,8 @@ export class Visual implements IVisual {
             let data = this.xAxisValues.map((x, i) => {
                 return { "x": x, "y": this.yAxisValues[i], "cat": cats ? cats[i] : "" }
             });
+
+            this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualFormattingSettingsModel, options.dataViews);
             // Get the min and max values for the x and y axis
             let xMin = Math.min(...this.xAxisValues);
             let xMax = Math.max(...this.xAxisValues);
@@ -141,8 +146,8 @@ export class Visual implements IVisual {
                 .append("circle")
                 .attr("cx", function (d) { return x(d.x); })
                 .attr("cy", function (d) { return y(d.y); })
-                .attr("r", 5.5)
-                .style("fill", "#8dd9be");
+                .attr("r", this.visualSettings.dataPointCard.circleThickness.value)
+                .style("fill", this.visualSettings.dataPointCard.defaultColor.value.value);
 
             this.dotSelection = this.svgRoot
                 .selectAll("circle")
@@ -179,5 +184,8 @@ export class Visual implements IVisual {
             }
         }
         return axis === "x" ? xFormat : yFormat;
+    }
+    public getFormattingModel(): powerbi.visuals.FormattingModel {
+        return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
     }
 }

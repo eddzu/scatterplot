@@ -23,30 +23,9 @@
                         }
                     }
                 },
-                "showAllDataPoints": {
+                "circleThickness": {
                     "type": {
-                        "bool": true
-                    }
-                },
-                "fill": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "fillRule": {
-                    "type": {
-                        "fill": {}
-                    }
-                },
-                "fontSize": {
-                    "type": {
-                        "formatting": {
-                            "fontSize": true
-                        }
+                        "numeric": true
                     }
                 }
             }

@@ -38,37 +38,17 @@ import FormattingSettingsModel = formattingSettings.Model;
 class DataPointCardSettings extends FormattingSettingsCard {
     defaultColor = new formattingSettings.ColorPicker({
         name: "defaultColor",
-        displayName: "Default color",
-        value: { value: "" }
+        displayName: "Color",
+        value: { value: "#40B5AD" }
     });
-
-    showAllDataPoints = new formattingSettings.ToggleSwitch({
-        name: "showAllDataPoints",
-        displayName: "Show all",
-        value: true
+    public circleThickness = new formattingSettings.NumUpDown({
+        name: "circleThickness",
+        displayName: "Thickness",
+        value: 4
     });
-
-    fill = new formattingSettings.ColorPicker({
-        name: "fill",
-        displayName: "Fill",
-        value: { value: "" }
-    });
-
-    fillRule = new formattingSettings.ColorPicker({
-        name: "fillRule",
-        displayName: "Color saturation",
-        value: { value: "" }
-    });
-
-    fontSize = new formattingSettings.NumUpDown({
-        name: "fontSize",
-        displayName: "Text Size",
-        value: 12
-    });
-
     name: string = "dataPoint";
     displayName: string = "Data colors";
-    slices: Array<FormattingSettingsSlice> = [this.defaultColor, this.showAllDataPoints, this.fill, this.fillRule, this.fontSize];
+    slices: Array<FormattingSettingsSlice> = [this.defaultColor, this.circleThickness];
 }
 
 /**
