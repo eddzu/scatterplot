@@ -34,6 +34,7 @@ import IVisualHost = powerbi.extensibility.visual.IVisualHost;
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import * as d3 from "d3";
 import { createTooltipServiceWrapper, ITooltipServiceWrapper } from "powerbi-visuals-utils-tooltiputils";
+import { valueFormatter } from "powerbi-visuals-utils-formattingutils";
 
 export class Visual implements IVisual {
     private host: IVisualHost;
@@ -44,6 +45,10 @@ export class Visual implements IVisual {
     private xName: string;
     private yName: string;
     private catName: string;
+    private xGivenFormat: string;
+    private yGivenFormat: string;
+    private xAxisValues: number[];
+    private yAxisValues: number[];
 
     //Creates instance of ScatterPlot
     constructor(options: VisualConstructorOptions) {
@@ -58,45 +63,28 @@ export class Visual implements IVisual {
         this.svgRoot.selectAll("*").remove();
         let categorical = options.dataViews[0].categorical;
 
-        if (//categorical?.categories?.length === 1 &&
-            categorical?.values?.length === 2) {
-
+        if (categorical?.values?.length === 2) {
             this.svgRoot
                 .attr("width", options.viewport.width)
                 .attr("height", options.viewport.height);
-
-            let xAxis = <number[]>categorical.values[0].values;
-            let yAxis = <number[]>categorical.values[1].values;
+            this.xAxisValues = <number[]>categorical.values[0].values;
+            this.yAxisValues = <number[]>categorical.values[1].values;
             this.xName = categorical.values[0].source.displayName;
             this.yName = categorical.values[1].source.displayName;
-            //if any values in xAxis or yAxis are greater than a million, divide by a million and round to two decimal places
-            if (xAxis.some(x => x > 1000000)) {
-                xAxis = xAxis.map(x => Math.round((x / 1000000) * 1000) / 1000);
-                this.xName = this.xName + " (in millions)";
-            }
-            if (yAxis.some(y => y > 1000000)) {
-                yAxis = yAxis.map(y => Math.round((y / 1000000) * 1000) / 1000);
-                this.yName = this.yName + " (in millions)";
-            }
-            //Round all values in xAxis and yAxis to three decimal places, if the decimals are all zeroes remove them
-            xAxis = xAxis.map(x => Math.round(x * 1000) / 1000);
-            yAxis = yAxis.map(y => Math.round(y * 1000) / 1000);
-            if (xAxis.every(x => x % 1 === 0)) {
-                xAxis = xAxis.map(x => Math.round(x));
-            }
-            if (yAxis.every(y => y % 1 === 0)) {
-                yAxis = yAxis.map(y => Math.round(y));
-            }
-            let cats = categorical.categories?.[0].values;
+            this.xGivenFormat = categorical.values[0].source.format;
+            this.yGivenFormat = categorical.values[1].source.format;
             this.catName = categorical.categories?.[0].source.displayName;
-            let data = xAxis.map((x, i) => {
-                return { "x": x, "y": yAxis[i], "cat": cats ? cats[i] : "" }
+            let xFormat = this.createFormatter("x", categorical);
+            let yFormat = this.createFormatter("y", categorical);
+            let cats = categorical.categories?.[0].values;
+            let data = this.xAxisValues.map((x, i) => {
+                return { "x": x, "y": this.yAxisValues[i], "cat": cats ? cats[i] : "" }
             });
             // Get the min and max values for the x and y axis
-            let xMin = Math.min(...xAxis);
-            let xMax = Math.max(...xAxis);
-            let yMin = Math.min(...yAxis);
-            let yMax = Math.max(...yAxis);
+            let xMin = Math.min(...this.xAxisValues);
+            let xMax = Math.max(...this.xAxisValues);
+            let yMin = Math.min(...this.yAxisValues);
+            let yMax = Math.max(...this.yAxisValues);
             // Calculate the margin and height and width of the chart
             let xMargin = 50;
             let yMargin = 40;
@@ -105,22 +93,33 @@ export class Visual implements IVisual {
 
             var x = d3.scaleLinear()
                 .domain([xMin, xMax])
-                .range([xMargin, width]);
-            this.svgRoot.append("g")
-                .attr("transform", "translate(0," + height + ")")
-                .call(d3.axisBottom(x));
+                .range([xMargin, width])
+                .nice();
+            var x_axis = d3.axisBottom(x).ticks(4)
+                .tickFormat((d) => { return xFormat.format(d); });
 
             var y = d3.scaleLinear()
                 .domain([yMin, yMax])
-                .range([height, yMargin]);
+                .rangeRound([height, yMargin])
+                .nice();
+            var y_axis = d3.axisLeft(y).ticks(4)
+                .tickFormat((d) => { return yFormat.format(d); });
+
+            this.svgRoot.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .call(d3.axisBottom(x))
+                .call(x_axis);
+
             this.svgRoot.append("g")
                 .attr("transform", "translate(" + xMargin + ",0)")
-                .call(d3.axisLeft(y));
+                .call(d3.axisLeft(y))
+                .call(y_axis);
 
             //On each axis add the name of the axis
             this.svgRoot.append("text")
                 .attr("transform", "translate(" + (width / 2) + " ," + (height + 33) + ")")
                 .style("text-anchor", "middle")
+                .style("font-size", "12px")
                 .text(this.xName);
 
             this.svgRoot.append("text")
@@ -129,6 +128,7 @@ export class Visual implements IVisual {
                 .attr("x", 0 - (height / 2))
                 .attr("dy", "1em")
                 .style("text-anchor", "middle")
+                .style("font-size", "12px")
                 .text(this.yName);
 
             // Add dots
@@ -140,7 +140,7 @@ export class Visual implements IVisual {
                 .attr("cx", function (d) { return x(d.x); })
                 .attr("cy", function (d) { return y(d.y); })
                 .attr("r", 5.5)
-                .style("fill", "#69b3a2");
+                .style("fill", "#8dd9be");
 
             this.dotSelection = this.svgRoot
                 .selectAll("circle")
@@ -151,9 +151,29 @@ export class Visual implements IVisual {
         }
     }
     private getTooltipData = (data: any): VisualTooltipDataItem[] => {
+        let fX = valueFormatter.create({ format: this.xGivenFormat });
+        let fY = valueFormatter.create({ format: this.yGivenFormat });
         return [{
             displayName: this.catName + "\n" + this.xName + " :\n " + this.yName + ":",
-            value: data.cat.toString() + "\n" + data.x.toString() + "\n" + data.y.toString(),
+            value: data.cat.toString() + "\n" + fX.format(data.x) + "\n" + fY.format(data.y),
         }];
+    }
+    private createFormatter = (axis: string, categorical) => {
+        let xFormat = valueFormatter.create({ format: this.xGivenFormat });
+        let yFormat = valueFormatter.create({ format: this.yGivenFormat });
+        if (axis === "x") {
+            if (this.xAxisValues.some(x => x > 1000000)) {
+                xFormat = valueFormatter.create({ value: 1000000, format: "0" });
+            } else if (this.xAxisValues.some(x => x > 1000)) {
+                xFormat = valueFormatter.create({ value: 1000, format: "0" });
+            }
+        } else if (axis === "y") {
+            if (this.yAxisValues.some(x => x > 1000000)) {
+                yFormat = valueFormatter.create({ value: 1000000, format: "0" });
+            } else if (this.xAxisValues.some(x => x > 1000)) {
+                yFormat = valueFormatter.create({ value: 1000, format: "0" });
+            }
+        }
+        return axis === "x" ? xFormat : yFormat;
     }
 }
