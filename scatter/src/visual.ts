@@ -59,14 +59,14 @@ export class Visual implements IVisual {
     }
     //Updates the state of the visual
     public update(options: VisualUpdateOptions) {
-        console.log(options);
+
         this.svgRoot.selectAll("*").remove();
         let categorical = options.dataViews[0].categorical;
-
         if (categorical?.values?.length === 2) {
             this.svgRoot
                 .attr("width", options.viewport.width)
                 .attr("height", options.viewport.height);
+
             this.xAxisValues = <number[]>categorical.values[0].values;
             this.yAxisValues = <number[]>categorical.values[1].values;
             this.xName = categorical.values[0].source.displayName;
@@ -74,8 +74,10 @@ export class Visual implements IVisual {
             this.xGivenFormat = categorical.values[0].source.format;
             this.yGivenFormat = categorical.values[1].source.format;
             this.catName = categorical.categories?.[0].source.displayName;
-            let xFormat = this.createFormatter("x", categorical);
-            let yFormat = this.createFormatter("y", categorical);
+            console.log(this.catName);
+
+            let xFormat = this.createFormatter("x");
+            let yFormat = this.createFormatter("y");
             let cats = categorical.categories?.[0].values;
             let data = this.xAxisValues.map((x, i) => {
                 return { "x": x, "y": this.yAxisValues[i], "cat": cats ? cats[i] : "" }
@@ -153,12 +155,14 @@ export class Visual implements IVisual {
     private getTooltipData = (data: any): VisualTooltipDataItem[] => {
         let fX = valueFormatter.create({ format: this.xGivenFormat });
         let fY = valueFormatter.create({ format: this.yGivenFormat });
+        let display = this.catName === undefined ? this.xName + "\n" + this.yName : this.catName + "\n" + this.xName + "\n" + this.yName;
+        let values = this.catName === undefined ? fX.format(data.x) + "\n" + fY.format(data.y) : data.cat.toString() + "\n" + fX.format(data.x) + "\n" + fY.format(data.y);
         return [{
-            displayName: this.catName + "\n" + this.xName + " :\n " + this.yName + ":",
-            value: data.cat.toString() + "\n" + fX.format(data.x) + "\n" + fY.format(data.y),
+            displayName: display,
+            value: values,
         }];
     }
-    private createFormatter = (axis: string, categorical) => {
+    private createFormatter = (axis: string): valueFormatter.IValueFormatter => {
         let xFormat = valueFormatter.create({ format: this.xGivenFormat });
         let yFormat = valueFormatter.create({ format: this.yGivenFormat });
         if (axis === "x") {
